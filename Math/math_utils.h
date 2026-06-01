@@ -54,4 +54,32 @@ int abs_int(int num);
  */
 float abs_float(float value);
 
+/**
+  * @brief  将浮点数值映射为指定位数的无符号整数（归一化转换）
+  * @param  x_float: 待转换的浮点数值
+  * @param  x_min:   该浮点数值的最小值（映射为整数0）
+  * @param  x_max:   该浮点数值的最大值（映射为整数最大值）
+  * @param  bits:    目标整数的位数（决定整数最大值，如8位→255，16位→65535）
+  * @retval 转换后的无符号整数
+  * @note   1. 实现原理：x_int = (x_float - x_min) / (x_max - x_min) * (2^bits - 1)
+  *         2. 若x_float超出[x_min, x_max]范围，会被钳位到0或(2^bits - 1)
+  *         3. 适用于嵌入式设备中浮点数据的量化（如CAN通讯、ADC/DAC数据转换）
+  *         4. 示例：float_to_uint(2.5f, 0.0f, 5.0f, 8) → 127（2.5/5*255≈127）
+  */
+int float_to_uint(float x_float, float x_min, float x_max, int bits);
+
+/**
+  * @brief  将指定位数的无符号整数还原为浮点数值（反归一化转换）
+  * @param  x_int:   待转换的无符号整数
+  * @param  x_min:   浮点数值的最小值（对应整数0）
+  * @param  x_max:   浮点数值的最大值（对应整数最大值）
+  * @param  bits:    整数的位数（决定整数最大值，如12位→4095）
+  * @retval 转换后的浮点数值
+  * @note   1. 实现原理：x_float = x_min + x_int / (2^bits - 1) * (x_max - x_min)
+  *         2. 若x_int超出[0, 2^bits - 1]范围，会按模或钳位处理（取决于实现）
+  *         3. 适用于量化整数的还原（如接收CAN总线的量化数据后还原为物理量）
+  *         4. 示例：uint_to_float(127, 0.0f, 5.0f, 8) → 2.4902f（127/255*5≈2.49）
+  */
+float uint_to_float(int x_int, float x_min, float x_max, int bits);
+float low_pass(float input, float output_last, float alpha);
 #endif /* MATH_UTILS_H */

@@ -34,3 +34,5 @@ https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pa
 3.左上角滚轮对应ch[4]
 4.右上拨杆对应s[0],上中下值分别为1,3,2
 5.左上拨杆对应s[1],上中下值分别为1,3,2
+
+2026.4.2 pid计算放回定时中断里了，定时中断的优先级都给成0，can的中断优先级是1，5号3508改为了速度环，具体的对应关系还要修改，然后4310的参数需要修改

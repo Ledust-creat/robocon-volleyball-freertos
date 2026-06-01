@@ -63,3 +63,11 @@ Thumbs.db
 *.user
 *.lnk
 
+# Build and tool caches
+build/
+.cache/
+.cmake/
+compile_commands.json
+
+# Keil output directory (keep project files, ignore generated outputs)
+MDK-ARM/DJ_A_wheel/

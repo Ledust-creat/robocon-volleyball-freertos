@@ -186,6 +186,7 @@
             <RvdsVP>2</RvdsVP>
             <RvdsMve>0</RvdsMve>
             <RvdsCdeCp>0</RvdsCdeCp>
+            <nBranchProt>0</nBranchProt>
             <hadIRAM2>1</hadIRAM2>
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>
@@ -339,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F427xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../USER/Inc;../USER/Src;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Task;../Math</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../USER/Inc;../USER/Src;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Task;../Math;../BSP;../DVE</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -423,6 +424,11 @@
               <FileType>1</FileType>
               <FilePath>..\USER\Src\JY901P_Calibrate.c</FilePath>
             </File>
+            <File>
+              <FileName>N630.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\Src\N630.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -468,20 +474,55 @@
               <FileType>5</FileType>
               <FilePath>..\USER\Inc\JY901P_Calibrate.h</FilePath>
             </File>
+            <File>
+              <FileName>N630.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\USER\Inc\N630.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>Math</GroupName>
+          <GroupName>BSP</GroupName>
           <Files>
             <File>
-              <FileName>math_utils.c</FileName>
+              <FileName>bsp_can.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Math\math_utils.c</FilePath>
+              <FilePath>..\BSP\bsp_can.c</FilePath>
             </File>
             <File>
-              <FileName>pid.c</FileName>
+              <FileName>bsp_can.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BSP\bsp_can.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_can_irq.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Math\pid.c</FilePath>
+              <FilePath>..\BSP\bsp_can_irq.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>DVE</GroupName>
+          <Files>
+            <File>
+              <FileName>dve_dji_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\DVE\dve_dji_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>dve_dji_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\DVE\dve_dji_motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>dve_dm_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\DVE\dve_dm_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>dve_dm_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\DVE\dve_dm_motor.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -501,47 +542,17 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>New Group</GroupName>
+          <GroupName>Math</GroupName>
           <Files>
             <File>
-              <FileName>main.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\main.h</FilePath>
+              <FileName>math_utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Math\math_utils.c</FilePath>
             </File>
             <File>
-              <FileName>stm32f4xx_hal_conf.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\stm32f4xx_hal_conf.h</FilePath>
-            </File>
-            <File>
-              <FileName>stm32f4xx_it.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\stm32f4xx_it.h</FilePath>
-            </File>
-            <File>
-              <FileName>tim.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\tim.h</FilePath>
-            </File>
-            <File>
-              <FileName>usart.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\usart.h</FilePath>
-            </File>
-            <File>
-              <FileName>can.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\can.h</FilePath>
-            </File>
-            <File>
-              <FileName>i2c.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\i2c.h</FilePath>
-            </File>
-            <File>
-              <FileName>gpio.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\gpio.h</FilePath>
+              <FileName>pid.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Math\pid.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -806,6 +817,51 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>New Group</GroupName>
+          <Files>
+            <File>
+              <FileName>main.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\main.h</FilePath>
+            </File>
+            <File>
+              <FileName>stm32f4xx_hal_conf.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\stm32f4xx_hal_conf.h</FilePath>
+            </File>
+            <File>
+              <FileName>stm32f4xx_it.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\stm32f4xx_it.h</FilePath>
+            </File>
+            <File>
+              <FileName>tim.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\tim.h</FilePath>
+            </File>
+            <File>
+              <FileName>usart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\usart.h</FilePath>
+            </File>
+            <File>
+              <FileName>can.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\can.h</FilePath>
+            </File>
+            <File>
+              <FileName>i2c.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\i2c.h</FilePath>
+            </File>
+            <File>
+              <FileName>gpio.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\gpio.h</FilePath>
             </File>
           </Files>
         </Group>

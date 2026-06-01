@@ -45,19 +45,40 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # USER sources
-    ${CMAKE_SOURCE_DIR}/USER/Src/bsp_rc.c
+    ${CMAKE_SOURCE_DIR}/USER/Src/bsp_usart.c
     ${CMAKE_SOURCE_DIR}/USER/Src/car_ctrl.c
     ${CMAKE_SOURCE_DIR}/USER/Src/Initialize.c
     ${CMAKE_SOURCE_DIR}/USER/Src/motor_can.c
-    ${CMAKE_SOURCE_DIR}/USER/Src/pid.c
+    ${CMAKE_SOURCE_DIR}/Math/pid.c
     ${CMAKE_SOURCE_DIR}/USER/Src/pid_tim.c
-    ${CMAKE_SOURCE_DIR}/USER/Src/remote_control.c
+    ${CMAKE_SOURCE_DIR}/USER/Src/jy901p.c
+    ${CMAKE_SOURCE_DIR}/USER/Src/JY901P_Calibrate.c
+    ${CMAKE_SOURCE_DIR}/Task/rc_task.c
+    ${CMAKE_SOURCE_DIR}/Task/chassis_task.c
+
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/croutine.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/event_groups.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/list.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/queue.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/stream_buffer.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/tasks.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/timers.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.c
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/port.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # USER include directory
     ${CMAKE_SOURCE_DIR}/USER/Inc
+    ${CMAKE_SOURCE_DIR}/Task
+    ${CMAKE_SOURCE_DIR}/Math
+    ${CMAKE_SOURCE_DIR}/Core/Inc
+
+    # 添加FreeRTOS头文件路径
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/include
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2
+    ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F
 )
 
 # Add project symbols (macros)

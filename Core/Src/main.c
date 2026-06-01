@@ -53,8 +53,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// ´æ´¢ÍÓÂÝÒÇ9ÖáÊý¾Ý
-JY901P_DataStruct gyro_data;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -105,19 +105,11 @@ int main(void)
   MX_TIM14_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  
-  
- 
-	
+  	
   All_Init();
   HAL_GPIO_WritePin(led1_GPIO_Port, led1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(led2_GPIO_Port, led2_Pin, GPIO_PIN_RESET);
-	
-	HAL_TIM_Base_Start_IT(&htim3);
-	
+  HAL_GPIO_WritePin(led2_GPIO_Port, led2_Pin, GPIO_PIN_RESET);
 
-	 TASK_START();
-//  HAL_TIM_Base_Start_IT(&htim14);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -198,6 +190,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
 
 /**
   * @brief  This function is executed in case of error occurrence.

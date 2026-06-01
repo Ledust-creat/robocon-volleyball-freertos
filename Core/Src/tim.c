@@ -89,7 +89,7 @@ void MX_TIM14_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM14_Init 2 */
-
+	HAL_TIM_Base_Start_IT(&htim14);
   /* USER CODE END TIM14_Init 2 */
 
 }

@@ -4,20 +4,10 @@
 #include "motor_can.h"
 #include <stdint.h>
 uint16_t PID_Calc_Flag = 0;
-/************************ 需根据实际硬件修改的宏定义 ************************/
-// 定时器选择（示例：TIM3，根据实际使用的定时器修改）
-#define PID_TIMx               TIM3
-// 定时器时钟使能宏（示例：TIM3属于APB1总线）
-#define PID_TIM_RCC_CLK_ENABLE()  __HAL_RCC_TIM3_CLK_ENABLE()
-// 定时器中断号（示例：TIM3全局中断）
-#define PID_TIM_IRQn           TIM3_IRQn
-// 定时器中断服务函数名（需和启动文件中的中断向量表一致）
-#define PID_TIM_IRQHandler     TIM3_IRQHandler
 
-/************************ 全局变量（HAL库定时器句柄） ************************/
-TIM_HandleTypeDef htim_pid;  // PID定时器句柄
- int16_t k;
-
+ int16_t k; //用于led闪烁检查是否正常进入定时器中断
+// 发球状态机在遥控器模块中推进，这里按固定周期调用
+extern void remote_control_serve_update(void);
 /************************ 定时器更新中断回调函数 ************************/
 /**
  * @brief  定时器更新中断回调函数（HAL库弱函数重写）
@@ -25,25 +15,14 @@ TIM_HandleTypeDef htim_pid;  // PID定时器句柄
  * @param  htim: 定时器句柄
  * @retval 无
  */
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     static int16_t voltages[4];
-	
+	static int16_t voltage_angle[1];
     if (htim == &htim3)  // 确认是PID定时器的更新中断
     {
-//        for(int i=0;i<MotorCount;i++)
-//        {
-//            voltages[i]=(int16_t)C620[i].Speed_pid.out;
-//            
-//        }
-//        for(int i=0;i<MotorCount;i++)
-//        {
-//            pid_calc(&damiao[i].Speed_pid,damiao[i].Speed_pid.get,damiao[i].Speed_pid.set);
-//            voltages[i+2]=(int16_t)damiao[i].Speed_pid.out;
-//            
-//        }
-//        Set_dm(&hcan2,voltages);
-//        Set_voltagec1(&hcan1,voltages);
+		/*led闪烁*/
 		k=k+1;
 		if(k>500)
 		{
@@ -51,8 +30,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			
 			k=0;
 		}
-		
-		JY901P_ReadAllData(&gyro_data);//读取陀螺仪数据
+		/*机械臂达妙电机控制原代码*/
+		// 每 10ms 更新一次发球动作阶段
+//		remote_control_serve_update();
+//		Set_dm(&hcan1,0);
+//		Set_dm(&hcan1,1);
+		/*底盘控制原代码*/		
+//        for(int i=0;i<MotorCount;i++)
+//        {
+//            voltages[i]=(int16_t)C620[i].Speed_pid.out;
+//            
+//        }
+//        Set_voltagec(&hcan1,voltages);
+//		comm_can_set_rpm(001, C620[0].Speed_pid.out);
+		/*陀螺仪*/
+//		JY901P_ReadAllData(&gyro_data);//读取陀螺仪数据
+//        pid_calc(&car_pid, gyro_data.Gyro_Z-Z_zeropoint, 0); // 假设控制角速度为0
+//		 float num[]={				//gyro_data.Gyro_X,
+//            gyro_data.Gyro_Y,
+//            gyro_data.Gyro_Z,
+//            gyro_data.Acc_X,
+//            gyro_data.Acc_Y,
+//            gyro_data.Acc_Z,
+//            gyro_data.Angle_X,
+//            gyro_data.Angle_Y,
+//            gyro_data.Angle_Z
+//        };
+//        Vofa_JustFloat(num, 3);//串口打印
+//        car_w=car_pid.out;
 
     }
 //	if(hcan1.ErrorCode!=0)//避免can总线错误导致死机
@@ -72,10 +77,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //	
 //	}
     //在这里可以添加角度环的中断处理逻辑
-    if(htim == &htim14)  // 确认是PID定时器的更新中断
-    {
-        
-    }
+//    if(htim == &htim14)  // 确认是PID定时器的更新中断
+//    {
+//        pid_calc(&C620_angle.Speed_pid,C620_angle.Speed_pid.get,C620_angle.Speed_pid.set);
+//        voltage_angle[0]=(int16_t)C620_angle.Speed_pid.out;
+//        Set_voltage_angle(&hcan2,voltage_angle);
+//    } 
 }
 
 /************************ 错误处理函数（可选） ************************/
