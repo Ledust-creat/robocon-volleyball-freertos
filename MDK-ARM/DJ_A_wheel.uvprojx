@@ -499,6 +499,16 @@
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_can_irq.c</FilePath>
             </File>
+            <File>
+              <FileName>bsp_rc_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_rc_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_rc_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BSP\bsp_rc_uart.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -523,6 +533,16 @@
               <FileName>dve_dm_motor.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\DVE\dve_dm_motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>dve_t15.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\DVE\dve_t15.c</FilePath>
+            </File>
+            <File>
+              <FileName>dve_t15.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\DVE\dve_t15.h</FilePath>
             </File>
           </Files>
         </Group>

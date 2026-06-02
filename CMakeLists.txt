@@ -53,6 +53,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/USER/Src/pid_tim.c
     ${CMAKE_SOURCE_DIR}/USER/Src/jy901p.c
     ${CMAKE_SOURCE_DIR}/USER/Src/JY901P_Calibrate.c
+    ${CMAKE_SOURCE_DIR}/BSP/bsp_can.c
+    ${CMAKE_SOURCE_DIR}/BSP/bsp_can_irq.c
+    ${CMAKE_SOURCE_DIR}/BSP/bsp_rc_uart.c
+    ${CMAKE_SOURCE_DIR}/DVE/dve_dji_motor.c
+    ${CMAKE_SOURCE_DIR}/DVE/dve_dm_motor.c
+    ${CMAKE_SOURCE_DIR}/DVE/dve_t15.c
+    ${CMAKE_SOURCE_DIR}/Math/math_utils.c
     ${CMAKE_SOURCE_DIR}/Task/rc_task.c
     ${CMAKE_SOURCE_DIR}/Task/chassis_task.c
 
@@ -73,6 +80,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/USER/Inc
     ${CMAKE_SOURCE_DIR}/Task
     ${CMAKE_SOURCE_DIR}/Math
+    ${CMAKE_SOURCE_DIR}/BSP
+    ${CMAKE_SOURCE_DIR}/DVE
     ${CMAKE_SOURCE_DIR}/Core/Inc
 
     # 添加FreeRTOS头文件路径

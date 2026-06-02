@@ -1,64 +1,200 @@
 #include "math_utils.h"
 
-// 最大限幅函数实现
-float clamp_max(float value, float max_limit) {
+/*
+*********************************************************************************************************
+*   函 数 名: clamp_max
+*   功能说明: 最大限幅，保持原工程接口兼容
+*   形    参: value     - 输入值
+*             max_limit - 最大值
+*   返 回 值: 限幅后的值
+*********************************************************************************************************
+*/
+float clamp_max(float value, float max_limit)
+{
     return (value > max_limit) ? max_limit : value;
 }
 
-// 最小限幅函数实现
-float clamp_min(float value, float min_limit) {
+/*
+*********************************************************************************************************
+*   函 数 名: clamp_min
+*   功能说明: 最小限幅，保持原工程接口兼容
+*   形    参: value     - 输入值
+*             min_limit - 最小值
+*   返 回 值: 限幅后的值
+*********************************************************************************************************
+*/
+float clamp_min(float value, float min_limit)
+{
     return (value < min_limit) ? min_limit : value;
 }
 
-// 归一化到[0, 1]区间（保持向下兼容）
-float normalize(float value, float data_min, float data_max) {
-    // 浮点型差值判断，避免除零错误（兼容src_min > src_max的异常输入）
-    if ((data_max - data_min) < FLOAT_EPSILON && (data_min - data_max) < FLOAT_EPSILON) {
+/*
+*********************************************************************************************************
+*   函 数 名: normalize
+*   功能说明: 将输入值映射到 [0, 1]，保持原工程接口兼容
+*   形    参: value    - 输入值
+*             data_min - 原始区间最小值
+*             data_max - 原始区间最大值
+*   返 回 值: 归一化结果
+*********************************************************************************************************
+*/
+float normalize(float value, float data_min, float data_max)
+{
+    if (((data_max - data_min) < FLOAT_EPSILON) && ((data_min - data_max) < FLOAT_EPSILON))
+    {
         return 0.0f;
     }
-    // 核心公式：映射到[0, 1]
+
     return (value - data_min) / (data_max - data_min);
 }
 
-// 新增：归一化到任意正负目标区间
-float normalize_to_range(float value, float src_min, float src_max, float dst_min, float dst_max) {
-    // 第一步：先做除零保护，避免原始区间上下限相等导致程序异常
-    if ((src_max - src_min) < FLOAT_EPSILON && (src_min - src_max) < FLOAT_EPSILON) {
+/*
+*********************************************************************************************************
+*   函 数 名: normalize_to_range
+*   功能说明: 将输入值从源区间映射到目标区间
+*   形    参: value   - 输入值
+*             src_min - 源区间最小值
+*             src_max - 源区间最大值
+*             dst_min - 目标区间最小值
+*             dst_max - 目标区间最大值
+*   返 回 值: 映射后的值
+*********************************************************************************************************
+*/
+float normalize_to_range(float value, float src_min, float src_max, float dst_min, float dst_max)
+{
+    float norm_0_to_1;
+
+    if (((src_max - src_min) < FLOAT_EPSILON) && ((src_min - src_max) < FLOAT_EPSILON))
+    {
         return 0.0f;
     }
-    
-    // 第二步：核心双线性映射公式（支持任意正负区间）
-    // 1. 先将原始数据归一化到[0, 1]区间
-    float norm_0_to_1 = (value - src_min) / (src_max - src_min);
-    // 2. 再将[0, 1]区间映射到目标区间[dst_min, dst_max]
+
+    norm_0_to_1 = (value - src_min) / (src_max - src_min);
+
     return dst_min + norm_0_to_1 * (dst_max - dst_min);
 }
 
-// 整型绝对值函数实现
-int abs_int(int num) {
+/*
+*********************************************************************************************************
+*   函 数 名: abs_int
+*   功能说明: 整型绝对值，保持原工程接口兼容
+*   形    参: num - 输入值
+*   返 回 值: 绝对值
+*********************************************************************************************************
+*/
+int abs_int(int num)
+{
     return (num < 0) ? -num : num;
 }
 
-// 浮点型绝对值函数实现（无依赖，适配STM32）
-float abs_float(float value) {
+/*
+*********************************************************************************************************
+*   函 数 名: abs_float
+*   功能说明: 浮点绝对值，保持原工程接口兼容
+*   形    参: value - 输入值
+*   返 回 值: 绝对值
+*********************************************************************************************************
+*/
+float abs_float(float value)
+{
     return (value < 0.0f) ? -value : value;
 }
+
+/*
+*********************************************************************************************************
+*   函 数 名: float_to_uint
+*   功能说明: 将浮点数映射为指定位数的无符号整数，保持原工程接口兼容
+*   形    参: x_float - 输入浮点数
+*             x_min   - 最小值
+*             x_max   - 最大值
+*             bits    - 目标位数
+*   返 回 值: 转换后的整数
+*********************************************************************************************************
+*/
 int float_to_uint(float x_float, float x_min, float x_max, int bits)
 {
-    /* Converts a float to an unsigned int, given range and number of bits */
     float span = x_max - x_min;
     float offset = x_min;
-    return (int) ((x_float-offset)*((float)((1<<bits)-1))/span);
+
+    return (int)((x_float - offset) * ((float)((1 << bits) - 1)) / span);
 }
 
+/*
+*********************************************************************************************************
+*   函 数 名: uint_to_float
+*   功能说明: 将指定位数无符号整数还原为浮点数，保持原工程接口兼容
+*   形    参: x_int - 输入整数
+*             x_min - 最小值
+*             x_max - 最大值
+*             bits  - 整数位数
+*   返 回 值: 还原后的浮点数
+*********************************************************************************************************
+*/
 float uint_to_float(int x_int, float x_min, float x_max, int bits)
 {
-    /* converts unsigned int to float, given range and number of bits */
     float span = x_max - x_min;
     float offset = x_min;
-    return ((float)x_int)*span/((float)((1<<bits)-1)) + offset;
+
+    return ((float)x_int) * span / ((float)((1 << bits) - 1)) + offset;
 }
+
+/*
+*********************************************************************************************************
+*   函 数 名: low_pass
+*   功能说明: 一阶低通滤波，保持原工程接口兼容
+*   形    参: input       - 当前输入
+*             output_last - 上次输出
+*             alpha       - 滤波系数
+*   返 回 值: 当前输出
+*********************************************************************************************************
+*/
 float low_pass(float input, float output_last, float alpha)
 {
     return output_last + alpha * (input - output_last);
+}
+
+/*
+*********************************************************************************************************
+*   函 数 名: Math_ClampFloat
+*   功能说明: 浮点数上下限限幅
+*   形    参: value     - 输入值
+*             min_limit - 最小值
+*             max_limit - 最大值
+*   返 回 值: 限幅后的值
+*********************************************************************************************************
+*/
+float Math_ClampFloat(float value, float min_limit, float max_limit)
+{
+    if (value > max_limit)
+    {
+        return max_limit;
+    }
+
+    if (value < min_limit)
+    {
+        return min_limit;
+    }
+
+    return value;
+}
+
+/*
+*********************************************************************************************************
+*   函 数 名: Math_ApplyDeadzoneFloat
+*   功能说明: 浮点死区处理
+*   形    参: value    - 输入值
+*             deadzone - 死区阈值，正数
+*   返 回 值: 死区处理后的值
+*********************************************************************************************************
+*/
+float Math_ApplyDeadzoneFloat(float value, float deadzone)
+{
+    float dz = (deadzone < 0.0f) ? -deadzone : deadzone;
+
+    if ((value > -dz) && (value < dz))
+    {
+        return 0.0f;
+    }
+
+    return value;
 }
