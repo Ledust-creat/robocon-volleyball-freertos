@@ -12,6 +12,7 @@
 #include "start_task.h"
 
 #include "chassis_task.h"
+#include "hit_task.h"
 #include "rc_task.h"
 
 /* 启动任务配置参数 */
@@ -33,12 +34,16 @@ TaskHandle_t start_Task_Handle;  // 启动任务句柄：用于创建任务和自删除操作
 void start_task(void *parm)
 {
 
-	 /*  创建底盘控制任务：初始化底盘相关队列和控制任务 */
+	/*  创建底盘控制任务：初始化底盘相关队列和控制任务 */
 	chassis_task_creat();
-	 /*  创建遥控解析任务：初始化遥控队列和解析任务 */
+	/*  创建排球击打任务：初始化底盘相关队列和控制任务 */
+	hit_task_creat();
+	/*  创建遥控解析任务：初始化遥控队列和解析任务 */
 	rc_task_creat();
-	 /*  删除自身任务：启动任务仅做初始化，完成后释放资源（也可传NULL删除自身） */
+	
+	/*  删除自身任务：启动任务仅做初始化，完成后释放资源（也可传NULL删除自身） */
 	vTaskDelete(start_Task_Handle);
+	
 	
 
 }

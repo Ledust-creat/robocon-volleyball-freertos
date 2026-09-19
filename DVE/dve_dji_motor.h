@@ -18,17 +18,21 @@ extern "C" {
 #include <stdbool.h>
 
 /* 宏定义 --------------------------------------------------------------------*/
+#define DVE_DJI_MOTOR_NUM              (8U)         /* DJI 电机总数量，当前支持 0x201~0x208 */
+#define DVE_DJI_GROUP_MOTOR_NUM        (4U)         /* DJI 单个控制组电机数量 */
 
-#define DVE_DJI_MOTOR_STD_ID_BASE       (0x201U)    /* 当前 DJI 电机反馈 ID 起始值 */
-#define DVE_DJI_MOTOR_STD_ID_MAX        (0x205U)    /* 当前 DJI 电机反馈 ID 最大值 */
+#define DVE_DJI_STDID_MIN              (0x201U)     /* DJI 电机反馈最小标准帧 ID */
+#define DVE_DJI_STDID_MAX              (0x208U)     /* DJI 电机反馈最大标准帧 ID */
 
 #define DVE_DJI_TX_ID_GROUP_200         (0x200U)    /* 控制 0x201~0x204 */
 #define DVE_DJI_TX_ID_GROUP_1FF         (0x1FFU)    /* 控制 0x205~0x208 */
 
 #define DVE_DJI_CURRENT_MAX             (16384)     /* C620 电流控制值限幅 */
 #define DVE_DJI_ECD_RANGE               (8192.0f)   /* 单圈编码器范围 0~8191 */
-#define DVE_DJI_CAN_FRAME_LEN           (8U)        /* DJI 反馈/控制帧长度 */
-#define DVE_DJI_GROUP_MOTOR_NUM         (4U)        /* 每组控制帧最多控制 4 个电机 */
+
+#define DVE_DJI_FEEDBACK_LEN           (8U)         /* DJI 电机反馈帧长度 */
+#define DVE_DJI_CONTROL_LEN            (8U)         /* DJI 电机控制帧长度 */
+
 
 /* 类型定义 ------------------------------------------------------------------*/
 
@@ -38,14 +42,17 @@ extern "C" {
   */
 typedef enum
 {
-    DJI_MOTOR_CHASSIS_1 = 0,        /* 软件下标0，对应 CAN2 ID 0x201 */
-    DJI_MOTOR_CHASSIS_2,            /* 软件下标1，对应 CAN2 ID 0x202 */
-    DJI_MOTOR_CHASSIS_3,            /* 软件下标2，对应 CAN2 ID 0x203 */
-    DJI_MOTOR_CHASSIS_4,            /* 软件下标3，对应 CAN2 ID 0x204 */
+    DJI_MOTOR_CHASSIS_1 = 0,           /* 0x201 底盘电机 1 */
+    DJI_MOTOR_CHASSIS_2,               /* 0x202 底盘电机 2 */
+    DJI_MOTOR_CHASSIS_3,               /* 0x203 底盘电机 3 */
+    DJI_MOTOR_CHASSIS_4,               /* 0x204 底盘电机 4 */
 
-    DJI_MOTOR_HIT,                  /* 软件下标4，对应 CAN2 ID 0x205 */
+    DJI_MOTOR_PITCH,                   /* 0x205 俯仰/机械臂电机 */
+    DJI_MOTOR_HIT_1,                   /* 0x206 击球电机 1 */
+    DJI_MOTOR_HIT_2,                   /* 0x207 击球电机 2 */
+    DJI_MOTOR_HIT_3,                   /* 0x208 击球电机 3 */
 
-    DJI_MOTOR_NUM
+    DJI_MOTOR_NUM                      /* DJI 电机数量 */
 } DVE_DjiMotorId_t;
 
 typedef enum
@@ -87,6 +94,9 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
 /* 读取某个电机的反馈副本。 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
                                               DVE_DjiMotorFeedback_t *feedback);
+							 
+/*根据反馈结构体中的 ecd 更新 angle_deg*/
+DVE_DjiMotorStatus_t DVE_DjiMotor_UpdateAngleDeg(DVE_DjiMotorFeedback_t *fb);							 
 
 /* 快速读取转速。内部仍然通过 GetFeedback 拷贝，避免直接暴露结构体。 */
 int16_t DVE_DjiMotor_GetSpeedRpm(DVE_DjiMotorId_t id);
@@ -100,6 +110,9 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_SetCurrent(DVE_DjiMotorId_t id,
 
 /* 清除某个电机的输出电流缓存。 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_ClearCurrent(DVE_DjiMotorId_t id);
+
+/* 清除指定控制组的输出电流缓存。 */
+DVE_DjiMotorStatus_t DVE_DjiMotor_ClearGroupCurrent(DVE_DjiTxGroup_t group);
 
 /* 清除所有 DJI 电机的输出电流缓存。 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_ClearAllCurrent(void);

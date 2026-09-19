@@ -6,9 +6,7 @@
   * @note
   *          本文件只负责 DJI 协议电机的反馈解析、状态缓存和电流控制帧打包。
   *          当前工程中：
-  *          1. CAN2 ID 0x201~0x204 为底盘 3508；
-  *          2. CAN2 ID 0x205 为击球 3508；
-  *          3. 抬球电机为 DM 电机，不放在本文件中。
+  *          CAN2 ID 0x201~0x204 为底盘 3508；
   *
   *          本层不保存 PID，不处理底盘/击球状态机。
   *          上层 Task 周期读取反馈、计算 PID，再调用本层设置电流并发送。
@@ -47,7 +45,10 @@ static const DVE_DjiMotorConfig_t s_dji_motor_cfg[DJI_MOTOR_NUM] =
     [DJI_MOTOR_CHASSIS_3] = {0x203U, DVE_DJI_TX_ID_GROUP_200, 2U},
     [DJI_MOTOR_CHASSIS_4] = {0x204U, DVE_DJI_TX_ID_GROUP_200, 3U},
 
-    [DJI_MOTOR_HIT]       = {0x205U, DVE_DJI_TX_ID_GROUP_1FF, 0U},
+    [DJI_MOTOR_PITCH]     = {0x205U, DVE_DJI_TX_ID_GROUP_1FF, 0U},
+    [DJI_MOTOR_HIT_1]     = {0x206U, DVE_DJI_TX_ID_GROUP_1FF, 1U},
+    [DJI_MOTOR_HIT_2]     = {0x207U, DVE_DJI_TX_ID_GROUP_1FF, 2U},
+    [DJI_MOTOR_HIT_3]     = {0x208U, DVE_DJI_TX_ID_GROUP_1FF, 3U},
 };
 
 /* 私有变量 ------------------------------------------------------------------*/
@@ -137,15 +138,15 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
     /* DJI 电机反馈必须是标准数据帧，且长度固定为 8 字节。 */
     if ((rx_header->IDE != CAN_ID_STD) ||
         (rx_header->RTR != CAN_RTR_DATA) ||
-        (rx_header->DLC != DVE_DJI_CAN_FRAME_LEN))
+        (rx_header->DLC != DVE_DJI_FEEDBACK_LEN))
     {
         return false;
     }
 
     std_id = (uint16_t)rx_header->StdId;
 
-    /* 当前只接收 0x201~0x205，其他 ID 直接丢弃。 */
-    if ((std_id < DVE_DJI_MOTOR_STD_ID_BASE) || (std_id > DVE_DJI_MOTOR_STD_ID_MAX))
+    /* 当前只接收 0x201~0x208，其他 ID 直接丢弃。 */
+    if ((std_id < DVE_DJI_STDID_MIN) || (std_id > DVE_DJI_STDID_MAX))
     {
         return false;
     }
@@ -166,7 +167,7 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
      * data[7]   ：保留。
      */
     fb.ecd = (uint16_t)(((uint16_t)rx_data[0] << 8) | rx_data[1]);
-    fb.angle_deg = (float)fb.ecd * 360.0f / DVE_DJI_ECD_RANGE;
+	//    fb.angle_deg = (float)fb.ecd * 360.0f / DVE_DJI_ECD_RANGE;		//不直接浮点换算避免中断过长，要使用角度时先用DVE_DjiMotor_UpdateAngleDeg
     fb.speed_rpm = (int16_t)(((uint16_t)rx_data[2] << 8) | rx_data[3]);
     fb.current = (int16_t)(((uint16_t)rx_data[4] << 8) | rx_data[5]);
     fb.temp = rx_data[6];
@@ -210,6 +211,27 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
     lock_irq(&primask);
     *feedback = s_dji_motor[(uint8_t)id].feedback;
     unlock_irq(primask);
+
+    return DVE_DJI_OK;
+}
+
+/*
+*********************************************************************************************************
+*   函 数 名: DVE_DjiMotor_UpdateAngleDeg
+*   功能说明: 根据反馈结构体中的 ecd 更新 angle_deg
+*   形    参: fb                - DJI 电机反馈结构体指针
+*   返 回 值: DVE_DJI_OK        - 更新成功
+*             DVE_DJI_ERROR     - 参数错误
+*********************************************************************************************************
+*/
+DVE_DjiMotorStatus_t DVE_DjiMotor_UpdateAngleDeg(DVE_DjiMotorFeedback_t *fb)
+{
+    if (fb == NULL)
+    {
+        return DVE_DJI_ERR_PARAM;
+    }
+
+    fb->angle_deg = ((float)fb->ecd * 360.0f) / DVE_DJI_ECD_RANGE;
 
     return DVE_DJI_OK;
 }
@@ -308,7 +330,50 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_ClearCurrent(DVE_DjiMotorId_t id)
 {
     return DVE_DjiMotor_SetCurrent(id, 0);
 }
+/*
+*********************************************************************************************************
+*   函 数 名: DVE_DjiMotor_ClearGroupCurrent
+*   功能说明: 清除指定 DJI 控制组的输出电流缓存
+*   形    参: group             - DVE_DJI_TX_GROUP_200 或 DVE_DJI_TX_GROUP_1FF
+*   返 回 值: DVE_DjiMotorStatus_t
+*********************************************************************************************************
+*/
+DVE_DjiMotorStatus_t DVE_DjiMotor_ClearGroupCurrent(DVE_DjiTxGroup_t group)
+{
+    uint16_t tx_id;
+    uint32_t primask;
 
+    if (s_dji_inited == false)
+    {
+        return DVE_DJI_ERR_NOT_INIT;
+    }
+
+    if (group == DVE_DJI_TX_GROUP_200)
+    {
+        tx_id = DVE_DJI_TX_ID_GROUP_200;
+    }
+    else if (group == DVE_DJI_TX_GROUP_1FF)
+    {
+        tx_id = DVE_DJI_TX_ID_GROUP_1FF;
+    }
+    else
+    {
+        return DVE_DJI_ERR_PARAM;
+    }
+
+    /* 只清除指定控制组，避免底盘保护误清击球组，或击球保护误清底盘组。 */
+    lock_irq(&primask);
+    for (uint8_t i = 0U; i < (uint8_t)DJI_MOTOR_NUM; i++)
+    {
+        if (s_dji_motor[i].tx_group_id == tx_id)
+        {
+            s_dji_motor[i].output_current = 0;
+        }
+    }
+    unlock_irq(primask);
+
+    return DVE_DJI_OK;
+}
 /*
 *********************************************************************************************************
 *   函 数 名: DVE_DjiMotor_ClearAllCurrent
@@ -349,7 +414,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_SendCurrentGroup(DVE_DjiTxGroup_t group)
 {
     uint16_t tx_id;
     int16_t current[DVE_DJI_GROUP_MOTOR_NUM] = {0};
-    uint8_t data[DVE_DJI_CAN_FRAME_LEN] = {0};
+    uint8_t data[DVE_DJI_CONTROL_LEN] = {0};
     uint32_t primask;
 
     if (s_dji_inited == false)
@@ -373,7 +438,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_SendCurrentGroup(DVE_DjiTxGroup_t group)
 
     /*
      * 从内部电流缓存中取出属于本组控制帧的电机。
-     * 0x200 控制 0x201~0x204；0x1FF 当前只使用第 0 位控制 0x205。
+     * 0x200 控制 0x201~0x204；0x1FF 控制 0x205~0x208。
      */
     lock_irq(&primask);
     for (uint8_t i = 0U; i < (uint8_t)DJI_MOTOR_NUM; i++)

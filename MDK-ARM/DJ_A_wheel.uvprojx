@@ -385,11 +385,6 @@
           <GroupName>USER/Src</GroupName>
           <Files>
             <File>
-              <FileName>bsp_usart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\Src\bsp_usart.c</FilePath>
-            </File>
-            <File>
               <FileName>motor_can.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\Src\motor_can.c</FilePath>
@@ -398,11 +393,6 @@
               <FileName>pid_tim.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\Src\pid_tim.c</FilePath>
-            </File>
-            <File>
-              <FileName>car_ctrl.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\Src\car_ctrl.c</FilePath>
             </File>
             <File>
               <FileName>Initialize.c</FileName>
@@ -424,26 +414,11 @@
               <FileType>1</FileType>
               <FilePath>..\USER\Src\JY901P_Calibrate.c</FilePath>
             </File>
-            <File>
-              <FileName>N630.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USER\Src\N630.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>USER/Inc</GroupName>
           <Files>
-            <File>
-              <FileName>bsp_usart.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\USER\Inc\bsp_usart.h</FilePath>
-            </File>
-            <File>
-              <FileName>car_ctrl.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\USER\Inc\car_ctrl.h</FilePath>
-            </File>
             <File>
               <FileName>includes.h</FileName>
               <FileType>5</FileType>
@@ -473,11 +448,6 @@
               <FileName>JY901P_Calibrate.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\USER\Inc\JY901P_Calibrate.h</FilePath>
-            </File>
-            <File>
-              <FileName>N630.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\USER\Inc\N630.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -555,9 +525,29 @@
               <FilePath>..\Task\chassis_task.c</FilePath>
             </File>
             <File>
+              <FileName>chassis_task.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Task\chassis_task.h</FilePath>
+            </File>
+            <File>
+              <FileName>hit_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Task\hit_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>hit_task.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Task\hit_task.h</FilePath>
+            </File>
+            <File>
               <FileName>rc_task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Task\rc_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>rc_task.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Task\rc_task.h</FilePath>
             </File>
           </Files>
         </Group>

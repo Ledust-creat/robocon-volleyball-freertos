@@ -12,7 +12,7 @@
 */
 
 /* 遥控解析任务配置 */
-#define RC_PARSE_TASK_PRIO               5
+#define RC_PARSE_TASK_PRIO               27
 #define RC_PARSE_TASK_SIZE               256
 
 /*
@@ -64,18 +64,6 @@
  * Task/rc_task.c 读取原始帧并解析。
  */
 extern QueueHandle_t xRCRawDataQueue;
-
-/*
- * 底盘控制命令队列
- *
- * 建议定义位置:
- * Task/chassis_task.c
- *
- * 使用位置:
- * Task/rc_task.c 写入 Chassis_MoveCmd_t；
- * Task/chassis_task.c 读取 Chassis_MoveCmd_t。
- */
-extern QueueHandle_t xChassisCtrlQueue;
 
 /*
 *********************************************************************************************************

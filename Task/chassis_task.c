@@ -226,10 +226,10 @@ static void chassis_task(void *parm)
         heartbeat_cnt++;
         if (heartbeat_cnt >= CHASSIS_HEARTBEAT_PERIOD)
         {
-#if defined(led3_GPIO_Port) && defined(led3_Pin)
-            HAL_GPIO_TogglePin(led3_GPIO_Port, led3_Pin);
-#endif
-            heartbeat_cnt = 0U;
+			#if defined(led3_GPIO_Port) && defined(led3_Pin)
+						HAL_GPIO_TogglePin(led3_GPIO_Port, led3_Pin);
+			#endif
+						heartbeat_cnt = 0U;
         }
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(CHASSIS_TASK_PERIOD_MS));

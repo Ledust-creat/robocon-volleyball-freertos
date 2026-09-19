@@ -1,6 +1,7 @@
 #include "rc_task.h"
 #include "bsp_rc_uart.h"
 #include "chassis_task.h"
+#include "hit_task.h"
 #include "dve_t15.h"
 #include "math_utils.h"
 #include "main.h"
@@ -31,6 +32,9 @@ static TaskHandle_t s_rc_task_handle = NULL;
 static void RC_T15ToChassisCmd(const DVE_T15_Data_t *t15, Chassis_MoveCmd_t *cmd);
 static void RC_SetChassisStopCmd(Chassis_MoveCmd_t *cmd);
 
+static void RC_T15ToHitCmd(const DVE_T15_Data_t *t15, Hit_Cmd_t *cmd);
+static void RC_SetHitStopCmd(Hit_Cmd_t *cmd);
+
 /*
 *********************************************************************************************************
 *   函 数 名: rc_task_creat
@@ -46,7 +50,7 @@ static void RC_SetChassisStopCmd(Chassis_MoveCmd_t *cmd);
 */
 void rc_task_creat(void)
 {
-    xRCRawDataQueue = xQueueCreate(1, sizeof(uint8_t[DVE_T15_FRAME_LEN]));
+    xRCRawDataQueue = xQueueCreate(1, sizeof(uint8_t[BSP_RC_UART_RX_BUF_LEN]));
     configASSERT(xRCRawDataQueue != NULL);
 
     /*
@@ -74,14 +78,14 @@ void rc_task_creat(void)
 */
 void rc_task(void *parm)
 {
-    uint8_t raw_frame[DVE_T15_FRAME_LEN] = {0};
+    uint8_t raw_frame[BSP_RC_UART_RX_BUF_LEN] = {0};
     DVE_T15_Data_t t15_data;
     Chassis_MoveCmd_t chassis_cmd;
-
+	Hit_Cmd_t hit_cmd;
     (void)parm;
-
+	
     RC_SetChassisStopCmd(&chassis_cmd);
-
+	RC_SetHitStopCmd(&hit_cmd);
     for (;;)
     {
         /*
@@ -93,26 +97,31 @@ void rc_task(void *parm)
             if (DVE_T15_ParseFrame(raw_frame, DVE_T15_FRAME_LEN, &t15_data) != 0U)
             {
                 RC_T15ToChassisCmd(&t15_data, &chassis_cmd);
+				RC_T15ToHitCmd(&t15_data, &hit_cmd);
             }
             else
             {
                 RC_SetChassisStopCmd(&chassis_cmd);
+				RC_SetHitStopCmd(&hit_cmd);
             }
         }
         else
         {
             RC_SetChassisStopCmd(&chassis_cmd);
+			RC_SetHitStopCmd(&hit_cmd);
         }
 
         /*
          * 直接使用 FreeRTOS 队列发送底盘命令，不额外封装发送函数。
-         * xChassisCtrlQueue 由 chassis_task 创建。
          */
         if (xChassisCtrlQueue != NULL)
         {
             xQueueOverwrite(xChassisCtrlQueue, &chassis_cmd);
         }
-
+		if (xHitCmdQueue != NULL)
+		{
+			xQueueOverwrite(xHitCmdQueue, &hit_cmd);
+		}
         /*
          * 没有串口打印时，可用 led1 判断遥控任务是否在运行。
          * 如果不需要 LED 调试，可以删除这一句。
@@ -198,4 +207,76 @@ static void RC_SetChassisStopCmd(Chassis_MoveCmd_t *cmd)
     cmd->vx = 0.0f;
     cmd->vy = 0.0f;
     cmd->wz = 0.0f;
+}
+/*
+*********************************************************************************************************
+*   函 数 名: RC_T15ToHitCmd
+*   功能说明: 将 T15 拨杆状态转换成击球任务命令
+*   形    参: t15 - T15 解析结果
+*             cmd - 击球命令
+*   返 回 值: 无
+*********************************************************************************************************
+*/
+static void RC_T15ToHitCmd(const DVE_T15_Data_t *t15, Hit_Cmd_t *cmd)
+{
+    if ((t15 == NULL) || (cmd == NULL) || (t15->frame_valid == 0U))
+    {
+        return;
+    }
+
+    cmd->enable = 1U;
+
+    /* SWC 三档选择击球预设角度 */
+    switch (t15->swc)
+    {
+    case DVE_T15_SWITCH_UP:
+        cmd->preset_index = 0U;
+        break;
+
+    case DVE_T15_SWITCH_MID:
+        cmd->preset_index = 1U;
+        break;
+
+    case DVE_T15_SWITCH_DOWN:
+        cmd->preset_index = 2U;
+        break;
+
+    default:
+        cmd->preset_index = 1U;
+        break;
+    }
+
+    /* SF 按下进入击球动作位，松开回准备位 */
+    cmd->hit_pressed = (t15->sf == DVE_T15_SWITCH_DOWN) ? 1U : 0U;
+	
+    /* SWD_DOWN 控制 0x205 俯仰/机械臂速度 */
+    if (t15->swd == DVE_T15_SWITCH_DOWN)
+    {
+        cmd->pitch_speed_set = HIT_PITCH_SPEED_SET;
+    }
+    else
+    {
+        cmd->pitch_speed_set = HIT_PITCH_SPEED_ZERO;
+    }
+}
+
+/*
+*********************************************************************************************************
+*   函 数 名: RC_SetHitStopCmd
+*   功能说明: 设置击球安全停机命令
+*   形    参: cmd - 击球命令
+*   返 回 值: 无
+*********************************************************************************************************
+*/
+static void RC_SetHitStopCmd(Hit_Cmd_t *cmd)
+{
+    if (cmd == NULL)
+    {
+        return;
+    }
+
+    cmd->enable = 0U;
+    cmd->preset_index = 1U;
+    cmd->hit_pressed = 0U;
+    cmd->pitch_speed_set = HIT_PITCH_SPEED_ZERO;
 }

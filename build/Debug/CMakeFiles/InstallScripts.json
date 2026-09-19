@@ -1,8 +1,8 @@
 {
 	"InstallScripts" : 
 	[
-		"D:/Resources/robocon/shapai/RoboCon-VollyBall-main/build/Debug/cmake_install.cmake",
-		"D:/Resources/robocon/shapai/RoboCon-VollyBall-main/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
+		"D:/Resources/robocon/shapai/RoboCon-VollyBall-mainv3/build/Debug/cmake_install.cmake",
+		"D:/Resources/robocon/shapai/RoboCon-VollyBall-mainv3/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

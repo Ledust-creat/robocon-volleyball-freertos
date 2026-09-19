@@ -62,7 +62,7 @@ rule C_COMPILER__STM32_Drivers_unscanned_Debug
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = D:\AppData\Local\stm32cube\bundles\cmake\4.0.1+st.3\bin\cmake.exe --regenerate-during-build -SD:\Resources\robocon\shapai\RoboCon-VollyBall-main -BD:\Resources\robocon\shapai\RoboCon-VollyBall-main\build\Debug
+  command = D:\AppData\Local\stm32cube\bundles\cmake\4.0.1+st.3\bin\cmake.exe --regenerate-during-build -SD:\Resources\robocon\shapai\RoboCon-VollyBall-mainv3 -BD:\Resources\robocon\shapai\RoboCon-VollyBall-mainv3\build\Debug
   description = Re-running CMake...
   generator = 1
 
