@@ -43,16 +43,15 @@ void pid_init(pid_t *pid, float p, float i, float d, int32_t max_out, int32_t in
 	pid->output_deadband = 5;
 }
 
-/**
- * @brief 重置PID控制器参数
- * @param pid 指向PID控制器结构体的指针
- * @param p 比例系数
- * @param i 积分系数
- * @param d 微分系数
- * @return 无返回值
- *
- * 该函数用于初始化或重置PID控制器的参数，将PID系数和输出值清零
- */
+/*
+*********************************************************************************************************
+*   函 数 名: pid_reset
+*   功能说明: 更新PID增益并清除输出、积分和误差历史
+*   形    参: pid - 控制器；p/i/d - 保留或重新指定的增益
+*   返 回 值: 无
+*   说    明: 不改变最大输出和积分限幅；调用方若继续控制，应重新提供当前目标和测量。
+*********************************************************************************************************
+*/
 void pid_reset(pid_t *pid, float p, float i, float d)
 {
 	/* 设置PID三个参数 */
@@ -65,6 +64,12 @@ void pid_reset(pid_t *pid, float p, float i, float d)
 	pid->iout = 0;
 	pid->dout = 0;
 	pid->out = 0;
+	pid->set = 0;
+	pid->get = 0;
+	// 同时清除误差历史，避免停机后重新使能沿用上次误差产生微分冲击。
+	pid->error[NOW_ERR] = 0;
+	pid->error[LAST_ERR] = 0;
+	pid->error[LLAST_ERR] = 0;
 }
 
 /**
@@ -153,14 +158,23 @@ void PID_Struct_Init(pid_t *pid, float p, float i, float d, int32_t max_out, int
 		pid->f_pid_init(pid, p, i, d, max_out, integral_limit);
 	}
 }
+/*
+*********************************************************************************************************
+*   函 数 名: PID_PROCESS_Double
+*   功能说明: 执行角度外环和速度内环的串级PID计算
+*   形    参: pid_Angle/pid_speed - 两级控制器；target/Angle_get - 外环目标/反馈；speed_get - 内环反馈，击打采用deg/rpm
+*   返 回 值: 速度环输出控制字，限幅由控制器配置决定
+*   说    明: 角度环输出按现有标定作为速度环目标；直接调用pid_calc，避免未初始化函数指针。
+*********************************************************************************************************
+*/
 int16_t PID_PROCESS_Double(pid_t *pid_Angle,pid_t *pid_speed,float target, float Angle_get, float speed_get)
 {
 	//position		
 
-	pid_Angle->pid_calc(pid_Angle, Angle_get, target);
+	(void)pid_calc(pid_Angle, Angle_get, target);
 	//speed
 
-	pid_speed->pid_calc(pid_speed, speed_get, pid_Angle->out);
+	(void)pid_calc(pid_speed, speed_get, pid_Angle->out);
 	return pid_speed->out;
 }
 

@@ -1,3 +1,4 @@
+
 /**
   ******************************************************************************
   * @file    chassis_task.c
@@ -103,29 +104,31 @@ static int16_t float_to_i16(float value);
 /*
 *********************************************************************************************************
 *   函 数 名: chassis_task_creat
-*   功能说明: 创建底盘速度命令队列和底盘控制任务
-*   形    参: 无
-*   返 回 值: 无
-*   说    明: xChassisCtrlQueue 必须先创建，再让 rc_task 往里面写速度命令。
+*   功能说明: 创建本模块命令队列与业务任务，并向调用者报告结果
+*   形    参: 无；仅系统启动阶段调用一次
+*   返 回 值: OK表示成功；ERR_QUEUE表示队列失败；ERR_TASK表示任务失败且队列已释放
+*   说    明: 调用者保证创建阶段不被业务任务抢占；本模块不依赖启动模块或决定整机故障策略。
 *********************************************************************************************************
 */
-void chassis_task_creat(void)
+Task_CreateResult_t chassis_task_creat(void)
 {
     xChassisCtrlQueue = xQueueCreate(1, sizeof(Chassis_MoveCmd_t));
-    configASSERT(xChassisCtrlQueue != NULL);
+    if (xChassisCtrlQueue == NULL) return TASK_CREATE_ERR_QUEUE;
 
-    /*
-     * 任务创建前先清一次底盘输出。
-     * 如果 DVE_DjiMotor 尚未初始化，该函数内部会返回错误，但这里不阻塞。
-     */
-    chassis_set_zero_current();
 
-    xTaskCreate((TaskFunction_t)chassis_task,
+    if (xTaskCreate((TaskFunction_t)chassis_task,
                 (const char *)"chassis_task",
                 (configSTACK_DEPTH_TYPE)CHASSIS_TASK_SIZE,
                 (void *)NULL,
                 (UBaseType_t)CHASSIS_TASK_PRIO,
-                (TaskHandle_t *)&chassis_Task_Handle);
+                (TaskHandle_t *)&chassis_Task_Handle) != pdPASS)
+    {
+        // 创建失败时只释放本模块刚分配的队列，不调用上层启动或故障处理函数。
+        vQueueDelete(xChassisCtrlQueue);
+        xChassisCtrlQueue = NULL;
+        return TASK_CREATE_ERR_TASK;
+    }
+    return TASK_CREATE_OK;
 }
 
 /*
@@ -156,10 +159,13 @@ static void chassis_task(void *parm)
 
     (void)parm;
 
+    // 启动编排保证队列和设备先就绪，任务本身不查询启动状态。
     xLastWakeTime = xTaskGetTickCount();
     last_cmd_tick = xTaskGetTickCount();
 
     chassis_pid_init();
+    // 控制任务首次运行时提交零电流，创建函数只分配资源，不进入CAN等待事务。
+    chassis_set_zero_current();
 	
     for (;;)
     {
@@ -179,46 +185,58 @@ static void chassis_task(void *parm)
          */
         if ((xTaskGetTickCount() - last_cmd_tick) > pdMS_TO_TICKS(CHASSIS_CMD_TIMEOUT_MS))
         {
+            curr_cmd.enable = 0U;
             curr_cmd.vx = 0.0f;
             curr_cmd.vy = 0.0f;
             curr_cmd.wz = 0.0f;
         }
 
         /* 3. 根据当前 vx/vy/wz 计算四个底盘电机目标速度。 */
-        chassis_calc_wheel_target(&curr_cmd, &wheel_target);
-
-        /*
-         * 4. 四个底盘电机分别做速度环。
-         *    DVE 层只提供反馈缓存和电流发送接口，PID 仍然在任务层完成。
-         */
-        for (uint8_t i = 0U; i < CHASSIS_MOTOR_NUM; i++)
+        // 失控的enable=0清电流和PID历史；正常使能且零速仍由原速度环控制。
+        if (curr_cmd.enable != 0U)
         {
-            if (DVE_DjiMotor_IsOnline(s_chassis_motor_id[i], CHASSIS_MOTOR_OFFLINE_MS) == true)
-            {
-                if (DVE_DjiMotor_GetFeedback(s_chassis_motor_id[i], &feedback) == DVE_DJI_OK)
-                {
-                    (void)pid_calc(&s_chassis_speed_pid[i],
-                                   (float)feedback.speed_rpm,
-                                   (float)wheel_target.target_speed[i]);
+            chassis_calc_wheel_target(&curr_cmd, &wheel_target);
 
-                    (void)DVE_DjiMotor_SetCurrent(s_chassis_motor_id[i],
-                                                  (int32_t)s_chassis_speed_pid[i].out);
+            /*
+             * 4. 四个底盘电机分别做速度环。
+             *    DVE 层只提供反馈缓存和电流发送接口，PID 仍然在任务层完成。
+             */
+            for (uint8_t i = 0U; i < CHASSIS_MOTOR_NUM; i++)
+            {
+                if (DVE_DjiMotor_IsOnline(s_chassis_motor_id[i], CHASSIS_MOTOR_OFFLINE_MS) == true)
+                {
+                    if (DVE_DjiMotor_GetFeedback(s_chassis_motor_id[i], &feedback) == DVE_DJI_OK)
+                    {
+                        (void)pid_calc(&s_chassis_speed_pid[i],
+                                       (float)feedback.speed_rpm,
+                                       (float)wheel_target.target_speed[i]);
+
+                        (void)DVE_DjiMotor_SetCurrent(s_chassis_motor_id[i],
+                                                      (int32_t)s_chassis_speed_pid[i].out);
+                    }
+                    else
+                    {
+                        /* 理论上在线判断通过后读取失败概率很低，失败时保守清零该路输出。 */
+                        (void)DVE_DjiMotor_SetCurrent(s_chassis_motor_id[i], 0);
+                        chassis_pid_reset_one(i);
+                    }
                 }
                 else
                 {
-                    /* 理论上在线判断通过后读取失败概率很低，失败时保守清零该路输出。 */
+                    /* 电机离线：清零该路输出并重置 PID，避免积分残留。 */
                     (void)DVE_DjiMotor_SetCurrent(s_chassis_motor_id[i], 0);
                     chassis_pid_reset_one(i);
                 }
             }
-            else
+        }
+        else
+        {
+            for (uint8_t i = 0U; i < CHASSIS_MOTOR_NUM; i++)
             {
-                /* 电机离线：清零该路输出并重置 PID，避免积分残留。 */
                 (void)DVE_DjiMotor_SetCurrent(s_chassis_motor_id[i], 0);
                 chassis_pid_reset_one(i);
             }
         }
-
         /* 5. 统一发送 0x200 控制帧，控制 0x201~0x204 四个底盘电机。 */
         (void)DVE_DjiMotor_SendCurrentGroup(DVE_DJI_TX_GROUP_200);
 		

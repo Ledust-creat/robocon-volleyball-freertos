@@ -63,6 +63,8 @@ typedef struct
     DVE_T15_SwitchPos_t se;                             /* SE  拨杆状态 */
     DVE_T15_SwitchPos_t sf;                             /* SF  拨杆状态 */
 
+    uint8_t failsafe;             /* SBUS第23字节bit3；置位时帧不可用于控制 */
+    uint8_t frame_lost;           /* SBUS第23字节bit2；本工程采用立即停机策略 */
     uint8_t frame_valid;                                /* 当前帧有效标志 */
 } DVE_T15_Data_t;
 

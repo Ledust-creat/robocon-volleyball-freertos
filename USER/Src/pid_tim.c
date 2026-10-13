@@ -9,15 +9,23 @@ uint16_t PID_Calc_Flag = 0;
 // 发球状态机在遥控器模块中推进，这里按固定周期调用
 extern void remote_control_serve_update(void);
 /************************ 定时器更新中断回调函数 ************************/
-/**
- * @brief  定时器更新中断回调函数（HAL库弱函数重写）
- * @note   PID控制逻辑写在此处（原中断服务函数的业务代码）
- * @param  htim: 定时器句柄
- * @retval 无
- */
-
+/*
+*********************************************************************************************************
+*   函 数 名: HAL_TIM_PeriodElapsedCallback
+*   功能说明: 处理HAL定时器周期回调，维护TIM4毫秒时基及旧TIM3指示逻辑
+*   形    参: htim - 触发更新中断的定时器句柄
+*   返 回 值: 无
+*   说    明: TIM4仅递增HAL tick；SysTick由FreeRTOS维护，控制计算已移至周期任务。
+*********************************************************************************************************
+*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+    // TIM4每1ms递增HAL tick；SysTick归FreeRTOS，避免漏计或重复计时。
+    if (htim->Instance == TIM4)
+    {
+        HAL_IncTick();
+        return;
+    }
     static int16_t voltages[4];
 	static int16_t voltage_angle[1];
     if (htim == &htim3)  // 确认是PID定时器的更新中断

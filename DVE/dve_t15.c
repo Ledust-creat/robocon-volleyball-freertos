@@ -67,6 +67,12 @@ uint8_t DVE_T15_ParseFrame(const uint8_t *frame, uint16_t len, DVE_T15_Data_t *o
         return 0U;
     }
 
+    // 无线失控时接收机仍可能连续发送串口帧，不能只靠串口接收超时停机。
+    out->failsafe = ((frame[23] & 0x08U) != 0U) ? 1U : 0U;
+    out->frame_lost = ((frame[23] & 0x04U) != 0U) ? 1U : 0U;
+    // 本工程对failsafe和frame-lost均停机；保留标志供调试，frame_valid维持为0。
+    if ((out->failsafe != 0U) || (out->frame_lost != 0U)) return 0U;
+
     out->ch[0] = (int16_t)(((frame[1] | (frame[2] << 8)) & 0x07FF) - DVE_T15_CH_OFFSET);
     out->ch[1] = (int16_t)((((frame[2] >> 3) | (frame[3] << 5)) & 0x07FF) - DVE_T15_CH_OFFSET);
     out->ch[2] = (int16_t)((((frame[3] >> 6) | (frame[4] << 2) | (frame[5] << 10)) & 0x07FF) - DVE_T15_CH_OFFSET);

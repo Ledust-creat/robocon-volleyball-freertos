@@ -106,7 +106,7 @@ int main(void)
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   	
-  All_Init();
+  if (!All_Init()) START_Fail(1U);
   HAL_GPIO_WritePin(led1_GPIO_Port, led1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(led2_GPIO_Port, led2_Pin, GPIO_PIN_RESET);
 

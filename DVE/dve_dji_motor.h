@@ -28,6 +28,9 @@ extern "C" {
 #define DVE_DJI_TX_ID_GROUP_1FF         (0x1FFU)    /* 控制 0x205~0x208 */
 
 #define DVE_DJI_CURRENT_MAX             (16384)     /* C620 电流控制值限幅 */
+#define DVE_DJI_POSITION_TIMEOUT_MS     (100U)    /* 相邻反馈/快照帧龄上限，超时后位置失效锁存，单位ms */
+#define DVE_DJI_ECD_COUNTS              (8192)    /* 单圈整数编码器计数；4096为半圈歧义边界 */
+
 #define DVE_DJI_ECD_RANGE               (8192.0f)   /* 单圈编码器范围 0~8191 */
 
 #define DVE_DJI_FEEDBACK_LEN           (8U)         /* DJI 电机反馈帧长度 */
@@ -72,8 +75,10 @@ typedef enum
 
 typedef struct
 {
+    int32_t total_ecd;              /* 每个有效CAN反馈累计的有符号相对位置，单位编码器计数 */
+    bool position_valid;           /* 半圈歧义、溢出或超时后锁存false，完整初始化才恢复 */
     uint16_t ecd;                   /* 原始编码器值，0~8191 */
-    float angle_deg;                /* 单圈机械角度，单位 deg */
+    float angle_deg;                /* 快照复制后换算的单圈机械角度，单位deg */
     int16_t speed_rpm;              /* 转速，单位 rpm */
     int16_t current;                /* 反馈转矩电流 */
     uint8_t temp;                   /* 电机温度 */
@@ -91,7 +96,7 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
                              const CAN_RxHeaderTypeDef *rx_header,
                              const uint8_t rx_data[8]);
 
-/* 读取某个电机的反馈副本。 */
+/* 复制一致性反馈后换算角度；须由任务调用，成功不代表已收到首帧或位置有效。 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
                                               DVE_DjiMotorFeedback_t *feedback);
 							 

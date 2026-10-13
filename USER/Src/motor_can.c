@@ -1,3 +1,4 @@
+#include "bsp_can.h"
 /**
   ******************************************************************************
   * File Name          : CANTask.c
@@ -84,7 +85,6 @@ void can2_fliter_init(void)
 /*设置电机电压*/
 void Set_voltagec(CAN_HandleTypeDef* hcan,int16_t voltage[])
 {
-	uint32_t tx_mailbox;
   CAN_TxHeaderTypeDef can1TxMsg;
   uint8_t             can1TxData[8] = {0};
   can1TxMsg.StdId = 0x200;
@@ -99,12 +99,11 @@ void Set_voltagec(CAN_HandleTypeDef* hcan,int16_t voltage[])
 	/* 先检查是否有空的 TX mailbox，只有有空位才发送报文 */
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
-			HAL_CAN_AddTxMessage(hcan, &can1TxMsg, can1TxData, &tx_mailbox);//发送报文
+			(void)BSP_CAN_SendStd(hcan, can1TxMsg.StdId, can1TxData, (uint8_t)can1TxMsg.DLC);//发送报文
 	}
 }
 void Set_voltage_angle(CAN_HandleTypeDef* hcan,int16_t voltage[])
 {
-	uint32_t tx_mailbox;
   CAN_TxHeaderTypeDef canTxMsg;
   uint8_t             canTxData[8] = {0};
   canTxMsg.StdId = 0x1FF;
@@ -116,7 +115,7 @@ void Set_voltage_angle(CAN_HandleTypeDef* hcan,int16_t voltage[])
 	/* 先检查是否有空的 TX mailbox，只有有空位才发送报文 */
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
-			HAL_CAN_AddTxMessage(hcan, &canTxMsg, canTxData, &tx_mailbox);//发送报文
+			(void)BSP_CAN_SendStd(hcan, canTxMsg.StdId, canTxData, (uint8_t)canTxMsg.DLC);//发送报文
 	}
 }
 /**************达妙电机******** */
@@ -165,7 +164,7 @@ void Set_dm(CAN_HandleTypeDef* hcan,int16_t ID)
 	/* 先检查是否有空的 TX mailbox，只有有空位才发送报文 */
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
- 			HAL_CAN_AddTxMessage(hcan, &can1TxMsg, can1TxData, (uint32_t*)CAN_TX_MAILBOX0);//发送报文
+		(void)BSP_CAN_SendStd(hcan, can1TxMsg.StdId, can1TxData, (uint8_t)can1TxMsg.DLC);//发送报文
 	}
 }
 void Set_dm_enable(CAN_HandleTypeDef* hcan,uint8_t ID)
@@ -189,7 +188,7 @@ void Set_dm_enable(CAN_HandleTypeDef* hcan,uint8_t ID)
   
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
-			HAL_CAN_AddTxMessage(hcan, &can1TxMsg, can1TxData, (uint32_t*)CAN_TX_MAILBOX0);//·￠?í±¨??
+			(void)BSP_CAN_SendStd(hcan, can1TxMsg.StdId, can1TxData, (uint8_t)can1TxMsg.DLC);//·￠?í±¨??
 	}
 }
 
@@ -214,7 +213,7 @@ void Set_dm_disable(CAN_HandleTypeDef* hcan,uint8_t ID)
   
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
-			HAL_CAN_AddTxMessage(hcan, &can1TxMsg, can1TxData, (uint32_t*)CAN_TX_MAILBOX0);
+			(void)BSP_CAN_SendStd(hcan, can1TxMsg.StdId, can1TxData, (uint8_t)can1TxMsg.DLC);
 	}
 }
 void Set_dm_zeropoint(CAN_HandleTypeDef* hcan,uint16_t CAN_ID)
@@ -237,7 +236,7 @@ void Set_dm_zeropoint(CAN_HandleTypeDef* hcan,uint16_t CAN_ID)
 	/* 先检查是否有空的 TX mailbox，只有有空位才发送报文 */
 	if(HAL_CAN_GetTxMailboxesFreeLevel(hcan) > 0)
 	{
-			HAL_CAN_AddTxMessage(hcan, &can1TxMsg, can1TxData, (uint32_t*)CAN_TX_MAILBOX0);//发送报文
+			(void)BSP_CAN_SendStd(hcan, can1TxMsg.StdId, can1TxData, (uint8_t)can1TxMsg.DLC);//发送报文
 	}
 }
 void MIT_Calc(motor_info_t *motor,int16_t target_torque,int32_t target_Angle,int16_t target_speed)

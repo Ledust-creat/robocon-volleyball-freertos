@@ -15,6 +15,7 @@
 
 #include "dve_dji_motor.h"
 #include <string.h>
+#include <limits.h>
 
 /* 私有类型定义 --------------------------------------------------------------*/
 
@@ -108,12 +109,10 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_Init(CAN_HandleTypeDef *hcan)
 /*
 *********************************************************************************************************
 *   函 数 名: DVE_DjiMotor_RxCallback
-*   功能说明: DJI 电机 CAN 反馈解析入口，在 CAN 接收中断分发函数中调用
-*   形    参: hcan              - 触发接收中断的 CAN 句柄
-*             rx_header         - CAN 接收帧头，包含 StdId、IDE、RTR、DLC 等信息
-*             rx_data           - CAN 接收数据区，经典 CAN 最大 8 字节
-*   返 回 值: true              - 已识别并解析 DJI 电机反馈帧
-*             false             - 不是 DJI 电机反馈帧或参数异常
+*   功能说明: 在CAN接收ISR中校验DJI反馈、整数拆包并逐帧累计相对位置
+*   形    参: hcan - 已绑定CAN句柄；rx_header - 标准8字节数据帧头；rx_data - 帧数据
+*   返 回 值: true表示已更新反馈；false表示未初始化、总线/ID/长度或编码器值无效
+*   说    明: ISR不做PID、状态机或浮点换算；位置可信度可能锁存false，true不代表位置仍可信。
 *********************************************************************************************************
 */
 bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
@@ -122,15 +121,17 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
 {
     uint16_t std_id;
     int8_t motor_index;
-    DVE_DjiMotorFeedback_t fb;
+    DVE_DjiMotorFeedback_t fb = {0};
+    const DVE_DjiMotorFeedback_t *previous;
+    int32_t delta;
 
     if ((hcan == NULL) || (rx_header == NULL) || (rx_data == NULL))
     {
         return false;
     }
 
-    /* 如果模块已经初始化，只接受绑定 CAN 句柄上的 DJI 电机反馈。 */
-    if ((s_dji_inited == true) && (hcan != s_dji_hcan))
+    // 设备对象必须先完成初始化，再接受绑定总线反馈，避免首帧基准被初始化清除。
+    if ((s_dji_inited == false) || (hcan != s_dji_hcan))
     {
         return false;
     }
@@ -167,12 +168,41 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
      * data[7]   ：保留。
      */
     fb.ecd = (uint16_t)(((uint16_t)rx_data[0] << 8) | rx_data[1]);
-	//    fb.angle_deg = (float)fb.ecd * 360.0f / DVE_DJI_ECD_RANGE;		//不直接浮点换算避免中断过长，要使用角度时先用DVE_DjiMotor_UpdateAngleDeg
+    if (fb.ecd >= DVE_DJI_ECD_COUNTS) return false;
     fb.speed_rpm = (int16_t)(((uint16_t)rx_data[2] << 8) | rx_data[3]);
     fb.current = (int16_t)(((uint16_t)rx_data[4] << 8) | rx_data[5]);
     fb.temp = rx_data[6];
     fb.last_update_ms = HAL_GetTick();
     fb.online = true;
+    previous = &s_dji_motor[(uint8_t)motor_index].feedback;
+    fb.total_ecd = previous->total_ecd;
+    if (!previous->online)
+    {
+        // 首个真实编码器反馈只建立相对原点；不把初始全零缓存当机械零点。
+        fb.total_ecd = 0;
+        fb.position_valid = true;
+    }
+    else
+    {
+        // 继承失效锁存；即使新帧先于任务到达，超过100ms的反馈间断也不会自动恢复位置。
+        fb.position_valid = previous->position_valid &&
+            ((fb.last_update_ms - previous->last_update_ms) <= DVE_DJI_POSITION_TIMEOUT_MS);
+        // ISR逐帧保存连续变化；仅当相邻有效反馈的实际位移小于半圈时才能唯一解绕。
+        delta = (int32_t)fb.ecd - (int32_t)previous->ecd;
+        // 恰好半圈无法判断方向，拒绝继续累计；更长丢帧期间的未知圈数不能凭快照补回。
+        if ((delta == 4096) || (delta == -4096)) fb.position_valid = false;
+        if (delta > 4096) delta -= DVE_DJI_ECD_COUNTS;
+        else if (delta < -4096) delta += DVE_DJI_ECD_COUNTS;
+        if (fb.position_valid)
+        {
+            // 先检查有符号加法范围，溢出时保留原累计值并锁存失效。
+            if (((delta > 0) && (fb.total_ecd > INT32_MAX - delta)) ||
+                ((delta < 0) && (fb.total_ecd < INT32_MIN - delta)))
+                fb.position_valid = false;
+            else
+                fb.total_ecd += delta;
+        }
+    }
 
     /* 反馈由中断更新，写入内容较少，保持中断函数轻量。 */
     s_dji_motor[(uint8_t)motor_index].feedback = fb;
@@ -183,10 +213,10 @@ bool DVE_DjiMotor_RxCallback(CAN_HandleTypeDef *hcan,
 /*
 *********************************************************************************************************
 *   函 数 名: DVE_DjiMotor_GetFeedback
-*   功能说明: 读取指定 DJI 电机的反馈副本，避免上层直接访问内部静态对象
-*   形    参: id                - DJI 电机软件编号
-*             feedback          - 用于保存反馈副本的指针
-*   返 回 值: DVE_DjiMotorStatus_t
+*   功能说明: 取得一致性反馈快照，检测位置超时并在任务中换算单圈角度
+*   形    参: id - 软件电机编号；feedback - 调用者提供的快照存储区
+*   返 回 值: OK表示复制成功；PARAM/NOT_INIT表示参数或设备初始化异常
+*   说    明: 成功不代表在线；先检查online、帧龄和position_valid。超时失效保持锁存。
 *********************************************************************************************************
 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
@@ -208,9 +238,16 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
      * 反馈缓存由 CAN 中断更新。
      * 这里短暂关中断，只复制一份结构体，避免读到一半被中断改写。
      */
+    // 临界区只保护共享缓存；调用者原有中断状态由unlock_irq恢复。
     lock_irq(&primask);
+    if (s_dji_motor[(uint8_t)id].feedback.online &&
+        ((HAL_GetTick() - s_dji_motor[(uint8_t)id].feedback.last_update_ms) >
+         DVE_DJI_POSITION_TIMEOUT_MS))
+        s_dji_motor[(uint8_t)id].feedback.position_valid = false;
     *feedback = s_dji_motor[(uint8_t)id].feedback;
     unlock_irq(primask);
+    // 浮点换算在任务上下文、临界区之外执行，不延长CAN接收ISR和关中断区间。
+    (void)DVE_DjiMotor_UpdateAngleDeg(feedback);
 
     return DVE_DJI_OK;
 }
@@ -218,10 +255,10 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_GetFeedback(DVE_DjiMotorId_t id,
 /*
 *********************************************************************************************************
 *   函 数 名: DVE_DjiMotor_UpdateAngleDeg
-*   功能说明: 根据反馈结构体中的 ecd 更新 angle_deg
-*   形    参: fb                - DJI 电机反馈结构体指针
-*   返 回 值: DVE_DJI_OK        - 更新成功
-*             DVE_DJI_ERROR     - 参数错误
+*   功能说明: 由原始编码器计数换算单圈机械角度，不改变相对位置原点
+*   形    参: fb - 调用者持有的反馈副本，ecd范围0~8191
+*   返 回 值: OK表示换算完成；ERR_PARAM表示指针为空
+*   说    明: 任务上下文调用，换算结果单位deg；本函数不判断反馈在线或位置有效性。
 *********************************************************************************************************
 */
 DVE_DjiMotorStatus_t DVE_DjiMotor_UpdateAngleDeg(DVE_DjiMotorFeedback_t *fb)
@@ -311,6 +348,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_SetCurrent(DVE_DjiMotorId_t id,
     }
 
     /* 输出电流缓存可能被发送函数读取，写入时短暂保护。 */
+    // 临界区只保护共享缓存；调用者原有中断状态由unlock_irq恢复。
     lock_irq(&primask);
     s_dji_motor[(uint8_t)id].output_current = clamp_current(current);
     unlock_irq(primask);
@@ -362,6 +400,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_ClearGroupCurrent(DVE_DjiTxGroup_t group)
     }
 
     /* 只清除指定控制组，避免底盘保护误清击球组，或击球保护误清底盘组。 */
+    // 临界区只保护共享缓存；调用者原有中断状态由unlock_irq恢复。
     lock_irq(&primask);
     for (uint8_t i = 0U; i < (uint8_t)DJI_MOTOR_NUM; i++)
     {
@@ -392,6 +431,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_ClearAllCurrent(void)
     }
 
     /* 清空全部输出缓存，常用于急停、失控保护或初始化阶段。 */
+    // 临界区只保护共享缓存；调用者原有中断状态由unlock_irq恢复。
     lock_irq(&primask);
     for (uint8_t i = 0U; i < (uint8_t)DJI_MOTOR_NUM; i++)
     {
@@ -440,6 +480,7 @@ DVE_DjiMotorStatus_t DVE_DjiMotor_SendCurrentGroup(DVE_DjiTxGroup_t group)
      * 从内部电流缓存中取出属于本组控制帧的电机。
      * 0x200 控制 0x201~0x204；0x1FF 控制 0x205~0x208。
      */
+    // 临界区只保护共享缓存；调用者原有中断状态由unlock_irq恢复。
     lock_irq(&primask);
     for (uint8_t i = 0U; i < (uint8_t)DJI_MOTOR_NUM; i++)
     {

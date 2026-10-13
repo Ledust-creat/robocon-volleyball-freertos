@@ -17,7 +17,7 @@ extern "C" {
 * 文件名称：bsp_can.h
 * 功能定位：CAN 外设通用 BSP 层接口。
 * - CAN1：预留给 DM 达妙电机；
-* - CAN2：连接 DJI 协议电机，即 M3508 + C620 电调，当前使用 ID 0x201~0x205。
+* - CAN2：连接 DJI 协议电机，即 M3508 + C620 电调，当前使用 ID 0x201~0x208。
 */
 
 /*
@@ -61,8 +61,24 @@ typedef enum
     BSP_CAN_OK = 0,          /* 操作成功 */
     BSP_CAN_ERR_PARAM,       /* 参数错误，例如 hcan/data 为空，ID 越界，DLC 超过 8 */
     BSP_CAN_ERR_HAL,         /* HAL 库函数返回错误 */
-    BSP_CAN_ERR_BUSY         /* 发送邮箱已满，暂时无法发送 */
+    BSP_CAN_ERR_NOT_INIT,    /* 发送mutex尚未就绪或创建失败 */
+    BSP_CAN_ERR_CONTEXT,     /* 当前上下文不能等待mutex */
+    BSP_CAN_ERR_BUSY         /* 获取锁超时或发送邮箱已满 */
 } BSP_CAN_Status_t;
+
+typedef struct
+{
+    uint32_t submitted;        /* HAL已提交邮箱的累计次数，不是总线完成次数 */
+    uint32_t lock_timeout;     /* 等待发送mutex超时次数 */
+    uint32_t mailbox_full;     /* 持锁检查时无空闲邮箱的次数 */
+    uint32_t hal_error;        /* HAL提交失败次数 */
+    uint32_t context_error;    /* ISR/屏蔽中断/调度器状态拒绝次数 */
+} BSP_CAN_TxStats_t;
+
+/* 启动任务创建发送mutex；发送接口仅供调度器运行后的任务调用。 */
+BSP_CAN_Status_t BSP_CAN_InitTxSync(void);
+/* 短临界区复制统计快照；不清除计数，不依赖发送mutex。 */
+BSP_CAN_Status_t BSP_CAN_GetTxStats(CAN_HandleTypeDef *hcan, BSP_CAN_TxStats_t *stats);
 
 /*
 *********************************************************************************************************

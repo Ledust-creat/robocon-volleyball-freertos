@@ -1,6 +1,7 @@
 #ifndef __HIT_TASK_H
 #define __HIT_TASK_H
 
+#include "task_init.h"
 #include "FreeRTOS.h"
 #include "queue.h"
 #include <stdint.h>
@@ -20,7 +21,7 @@
 #define HIT_SCALE                      (19.0f)      /* 机构角度到电机累计角度的比例系数 */
 #define HIT_RETURN_STEP                (0.25f * HIT_SCALE)  /* 回零时每周期目标角度变化量 */
 
-#define HIT_OUTPUT_LIMIT               (20000)      /* 击球电机输出限幅 */
+#define HIT_OUTPUT_LIMIT               (16384)      /* 与C620设备层一致的电流控制字限幅，不是电流物理单位 */
 #define HIT_PITCH_OUTPUT_LIMIT         (10000)      /* 0x205 俯仰/机械臂电机输出限幅 */
 
 #define HIT_PRESET0_ANGLE_DEG          (65.0f)      /* SWC_UP 对应击球角度，单位 deg */
@@ -39,6 +40,7 @@
 
 typedef struct
 {
+    uint8_t safe_to_arm;            /* 有效帧确认SF松开、SWD关闭；可随enable=0的确认帧发送 */
     uint8_t enable;                    /* 击球功能使能，0 表示停机保护 */
     uint8_t preset_index;              /* 击球预设编号，范围 0~2 */
     uint8_t hit_pressed;               /* SF 是否按下，1 为动作角度，0 为回零角度 */
@@ -51,7 +53,7 @@ extern QueueHandle_t xHitCmdQueue;
 
 /* 函数声明 ------------------------------------------------------------------*/
 
-void hit_task_creat(void);
+Task_CreateResult_t hit_task_creat(void);
 void hit_task(void *parm);
 
 #endif /* __HIT_TASK_H */

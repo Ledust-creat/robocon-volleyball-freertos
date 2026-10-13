@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+#include "task_init.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -21,6 +22,7 @@ extern "C" {
 
 typedef struct
 {
+    uint8_t enable;                 /* 0表示启动/失控停机，清电流与PID历史；区别于正常零速目标 */
     float vx;                       /* 前后速度命令，沿用原工程遥控标定 */
     float vy;                       /* 左右速度命令，沿用原工程遥控标定 */
     float wz;                       /* 旋转速度命令，沿用原工程遥控标定 */
@@ -33,7 +35,7 @@ extern TaskHandle_t chassis_Task_Handle;
 
 /* 函数声明 ------------------------------------------------------------------*/
 
-void chassis_task_creat(void);
+Task_CreateResult_t chassis_task_creat(void);
 
 #ifdef __cplusplus
 }

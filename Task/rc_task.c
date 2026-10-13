@@ -1,3 +1,5 @@
+
+#include <stdbool.h>
 #include "rc_task.h"
 #include "bsp_rc_uart.h"
 #include "chassis_task.h"
@@ -22,6 +24,8 @@ QueueHandle_t xRCRawDataQueue = NULL;
 
 /* 遥控任务句柄 */
 static TaskHandle_t s_rc_task_handle = NULL;
+// 上电及失控后均等待安全拨杆确认；覆盖队列中只发布当前最新命令。
+static bool s_rc_recovery_wait = true;
 
 /*
 *********************************************************************************************************
@@ -34,38 +38,45 @@ static void RC_SetChassisStopCmd(Chassis_MoveCmd_t *cmd);
 
 static void RC_T15ToHitCmd(const DVE_T15_Data_t *t15, Hit_Cmd_t *cmd);
 static void RC_SetHitStopCmd(Hit_Cmd_t *cmd);
+static void RC_ProcessFrame(const uint8_t *frame, bool received,
+                            Chassis_MoveCmd_t *chassis_cmd, Hit_Cmd_t *hit_cmd);
 
 /*
 *********************************************************************************************************
 *   函 数 名: rc_task_creat
-*   功能说明: 创建遥控任务，并启动遥控 USART1 DMA 接收
-*   形    参: 无
-*   返 回 值: 无
-*
-*   注意:
-*   1. 必须先创建 xRCRawDataQueue；
-*   2. 再启动 BSP_RcUart_Start()；
-*   3. 否则 USART1 IDLE 中断可能访问空队列。
+*   功能说明: 创建本模块命令队列与业务任务，并向调用者报告结果
+*   形    参: 无；仅系统启动阶段调用一次
+*   返 回 值: OK表示成功；ERR_QUEUE表示队列失败；ERR_TASK表示任务失败且队列已释放
+*   说    明: 调用者保证创建阶段不被业务任务抢占；本模块不依赖启动模块或决定整机故障策略。
 *********************************************************************************************************
 */
-void rc_task_creat(void)
+Task_CreateResult_t rc_task_creat(void)
 {
     xRCRawDataQueue = xQueueCreate(1, sizeof(uint8_t[BSP_RC_UART_RX_BUF_LEN]));
-    configASSERT(xRCRawDataQueue != NULL);
+    if (xRCRawDataQueue == NULL) return TASK_CREATE_ERR_QUEUE;
 
     /*
      * 启动遥控 USART1 DMA 接收。
      * BSP_RcUart 收到完整帧后，会直接用 xQueueOverwriteFromISR()
      * 写入 xRCRawDataQueue。
      */
-    BSP_RcUart_Start();
 
-    xTaskCreate((TaskFunction_t)rc_task,
+
+    if (xTaskCreate((TaskFunction_t)rc_task,
                 (const char *)"rc_task",
                 (configSTACK_DEPTH_TYPE)RC_PARSE_TASK_SIZE,
                 (void *)NULL,
                 (UBaseType_t)RC_PARSE_TASK_PRIO,
-                (TaskHandle_t *)&s_rc_task_handle);
+                (TaskHandle_t *)&s_rc_task_handle) != pdPASS)
+    {
+        // 创建失败时只释放本模块刚分配的队列，不调用上层启动或故障处理函数。
+        vQueueDelete(xRCRawDataQueue);
+        xRCRawDataQueue = NULL;
+        return TASK_CREATE_ERR_TASK;
+    }
+    // 原始帧队列和解析任务创建成功后才打开DMA/IDLE，避免ISR访问未就绪资源。
+    BSP_RcUart_Start();
+    return TASK_CREATE_OK;
 }
 
 /*
@@ -79,7 +90,6 @@ void rc_task_creat(void)
 void rc_task(void *parm)
 {
     uint8_t raw_frame[BSP_RC_UART_RX_BUF_LEN] = {0};
-    DVE_T15_Data_t t15_data;
     Chassis_MoveCmd_t chassis_cmd;
 	Hit_Cmd_t hit_cmd;
     (void)parm;
@@ -92,24 +102,9 @@ void rc_task(void *parm)
          * 等待遥控原始帧。
          * 超时没有收到新帧，则认为遥控掉线，发送停机命令。
          */
-        if (xQueueReceive(xRCRawDataQueue ,raw_frame ,pdMS_TO_TICKS(RC_OFFLINE_TIMEOUT_MS)) == pdTRUE)
-        {
-            if (DVE_T15_ParseFrame(raw_frame, DVE_T15_FRAME_LEN, &t15_data) != 0U)
-            {
-                RC_T15ToChassisCmd(&t15_data, &chassis_cmd);
-				RC_T15ToHitCmd(&t15_data, &hit_cmd);
-            }
-            else
-            {
-                RC_SetChassisStopCmd(&chassis_cmd);
-				RC_SetHitStopCmd(&hit_cmd);
-            }
-        }
-        else
-        {
-            RC_SetChassisStopCmd(&chassis_cmd);
-			RC_SetHitStopCmd(&hit_cmd);
-        }
+        bool received = (xQueueReceive(xRCRawDataQueue, raw_frame,
+                         pdMS_TO_TICKS(RC_OFFLINE_TIMEOUT_MS)) == pdTRUE);
+        RC_ProcessFrame(raw_frame, received, &chassis_cmd, &hit_cmd);
 
         /*
          * 直接使用 FreeRTOS 队列发送底盘命令，不额外封装发送函数。
@@ -163,6 +158,7 @@ static void RC_T15ToChassisCmd(const DVE_T15_Data_t *t15, Chassis_MoveCmd_t *cmd
      * 如果上下/左右反了，只改 RC_CH_xxx_INDEX；
      * 如果方向反了，只改 RC_AXIS_xxx_SIGN。
      */
+    cmd->enable = 1U;
     vx_ch = RC_AXIS_VX_SIGN * (float)t15->ch[RC_CH_VX_INDEX];
     vy_ch = RC_AXIS_VY_SIGN * (float)t15->ch[RC_CH_VY_INDEX];
     wz_ch = RC_AXIS_WZ_SIGN * (float)t15->ch[RC_CH_WZ_INDEX];
@@ -204,6 +200,7 @@ static void RC_SetChassisStopCmd(Chassis_MoveCmd_t *cmd)
         return;
     }
 
+    cmd->enable = 0U;
     cmd->vx = 0.0f;
     cmd->vy = 0.0f;
     cmd->wz = 0.0f;
@@ -225,6 +222,9 @@ static void RC_T15ToHitCmd(const DVE_T15_Data_t *t15, Hit_Cmd_t *cmd)
     }
 
     cmd->enable = 1U;
+    // 只在有效遥控帧中生成安全拨杆确认，失控帧不会进入本映射。
+    cmd->safe_to_arm = ((t15->sf == DVE_T15_SWITCH_UP) &&
+                        (t15->swd != DVE_T15_SWITCH_DOWN)) ? 1U : 0U;
 
     /* SWC 三档选择击球预设角度 */
     switch (t15->swc)
@@ -276,7 +276,51 @@ static void RC_SetHitStopCmd(Hit_Cmd_t *cmd)
     }
 
     cmd->enable = 0U;
+    cmd->safe_to_arm = 0U;
     cmd->preset_index = 1U;
     cmd->hit_pressed = 0U;
     cmd->pitch_speed_set = HIT_PITCH_SPEED_ZERO;
+}
+
+/*
+*********************************************************************************************************
+*   函 数 名: RC_ProcessFrame
+*   功能说明: 解析一帧遥控输入并执行失控停机和恢复确认
+*   形    参: frame - 原始SBUS帧；received - 是否收到帧；chassis_cmd/hit_cmd - 输出命令
+*   返 回 值: 无；坏帧、失控标志或接收超时均输出停机命令
+*   说    明: 恢复要求SF松开且SWD关闭；确认帧只给击打任务safe_to_arm，不使能输出。
+*********************************************************************************************************
+*/
+static void RC_ProcessFrame(const uint8_t *frame, bool received,
+                            Chassis_MoveCmd_t *chassis_cmd, Hit_Cmd_t *hit_cmd)
+{
+    DVE_T15_Data_t t15_data;
+    if (received &&
+        (DVE_T15_ParseFrame(frame, DVE_T15_FRAME_LEN, &t15_data) != 0U))
+    {
+        if (s_rc_recovery_wait)
+        {
+            // 首个安全帧只确认恢复，enable仍为0；后续新帧才发布可执行目标。
+            RC_SetChassisStopCmd(chassis_cmd);
+            RC_SetHitStopCmd(hit_cmd);
+            if ((t15_data.sf == DVE_T15_SWITCH_UP) &&
+                (t15_data.swd != DVE_T15_SWITCH_DOWN))
+            {
+                s_rc_recovery_wait = false;
+                hit_cmd->safe_to_arm = 1U;
+            }
+        }
+        else
+        {
+            RC_T15ToChassisCmd(&t15_data, chassis_cmd);
+            RC_T15ToHitCmd(&t15_data, hit_cmd);
+        }
+    }
+    else
+    {
+        s_rc_recovery_wait = true;
+        RC_SetChassisStopCmd(chassis_cmd);
+        RC_SetHitStopCmd(hit_cmd);
+    }
+
 }

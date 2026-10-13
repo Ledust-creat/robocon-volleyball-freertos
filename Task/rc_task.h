@@ -1,6 +1,7 @@
 #ifndef __RC_TASK_H
 #define __RC_TASK_H
 
+#include "task_init.h"
 #include "FreeRTOS.h"
 #include "queue.h"
 #include <stdint.h>
@@ -71,7 +72,7 @@ extern QueueHandle_t xRCRawDataQueue;
 *********************************************************************************************************
 */
 
-void rc_task_creat(void);
+Task_CreateResult_t rc_task_creat(void);
 void rc_task(void *parm);
 
 #endif

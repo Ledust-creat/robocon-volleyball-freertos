@@ -17,6 +17,7 @@
   */
 
 #include "dve_dm_motor.h"
+#include "math_utils.h"
 #include <string.h>
 
 /* 私有宏定义 ----------------------------------------------------------------*/
